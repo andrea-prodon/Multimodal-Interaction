@@ -5,18 +5,26 @@ import cv2
 from yolo import YOLO
 import mediapipe as mp
 import tensorflow as tf
+import torch
+from torchvision import datasets, transforms, models
 
 def model_initialization():
-    
-    model = tf.saved_model.load('../saved_models/vgg16_bestacc.pth')
+    print("entrato")
+    model = models.vgg16(pretrained=True).to(device)
+    model = torch.load('saved_models/vgg16_bestacc.pth')
+    print("model initialized")
     return model
 
 def frame_resize(frame):
     resized_img_array = cv2.resize(frame, (400, 400))
     return resized_img_array
 
-def prediction():
-    pass
+def prediction(dataset):
+    model = model_initialization()
+    for data in dataset:
+        predictions = model(data)
+        st.write(predictions)
+        print(predictions)
 
 st.title("Sign Language Recognition Demo")
 st.text("Rube Rube Rube")
@@ -80,7 +88,8 @@ while run:
                 mano = frame_resize(mano)
                 if frames%100 == 0:
                     st.image(mano)
-                
+                    dataset = tf.data.Dataset.from_tensor_slices(mano).batch(1)
+                    prediction(dataset)
                 #cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
 
     except:
