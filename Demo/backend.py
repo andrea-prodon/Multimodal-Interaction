@@ -1,7 +1,8 @@
 from fastapi import FastAPI, UploadFile
 from fastapi.responses import JSONResponse, Response
-import torchvision
+from torchvision import models
 import torch
+from torch import nn
 import warnings
 from PIL import Image
 import numpy as np
@@ -13,9 +14,20 @@ app = FastAPI()
 app.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
-def model_initialization():
-    
-    model = ... 
+def model_initialization(resnet):
+    device = 'cuda' if torch.cuda.is_available else 'cpu'
+    if resnet:
+        model = models.resnet50(weights=None).to(device)
+        num_ftrs = model.fc.in_features
+        model.fc = nn.Linear(num_ftrs, 36) 
+        model.load_state_dict(torch.load('saved_models/resnet50_bestacc.pth'))
+    else:
+        model = models.vgg16(weights=None).to(device)
+        num_ftrs = model.classifier[6].in_features
+        model.classifier[6] = nn.Linear(num_ftrs, 36)
+        model.load_state_dict(torch.load('saved_models/vgg16_bestacc.pth'))
+    model.eval()
+    print("model initialized")
     return model
 
 
@@ -32,20 +44,19 @@ def ping() -> str:
 
 
 @app.post('/prediction')
-def prediction(file: UploadFile) -> Response:
-
-    # load image
-    img = Image.open(file.file)
-    img = np.array(img)
-
-    img = preprocessing(img)
-    predicted = app.model.predict(img) 
+def prediction(img: np.ndarray) -> Response:
+    img = torch.Tensor(img)
+    predicted = prediction(img) 
 
     return JSONResponse(content={"subject": str(predicted)}, status_code=200)
 
 
 
-def preprocessing(image: np.ndarray) -> np.ndarray:
-    image = ...
-    return image
-
+def prediction(dataset):
+    dataset = torch.einsum('ijk -> kij', dataset)
+    print('sto per predirre veramente')
+    output = app.model(dataset)
+    print(output)
+    _, predicted = torch.max(output, 1)
+    print(predicted)
+    return predicted
