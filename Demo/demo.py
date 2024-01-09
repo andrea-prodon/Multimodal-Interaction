@@ -9,18 +9,21 @@ import torch
 from torchvision import datasets, transforms, models
 import asyncio
 import torch.nn as nn
+import httpx
+import time
+
 
 def model_initialization(resnet=True):
-    device = 'cuda' if torch.cuda.is_available else 'cpu'
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if resnet:
         model = models.resnet50(weights=None).to(device)
         num_ftrs = model.fc.in_features
-        model.fc = nn.Linear(num_ftrs, 36) 
+        model.fc = nn.Linear(num_ftrs, 36).to(device)
         model.load_state_dict(torch.load('saved_models/resnet50_bestacc.pth'))
     else:
         model = models.vgg16(weights=None).to(device)
         num_ftrs = model.classifier[6].in_features
-        model.classifier[6] = nn.Linear(num_ftrs, 36)
+        model.classifier[6] = nn.Linear(num_ftrs, 36).to(device)
         model.load_state_dict(torch.load('saved_models/vgg16_bestacc.pth'))
     model.eval()
     print("model initialized")
@@ -32,22 +35,24 @@ def frame_resize(frame):
     return resized_img_array
 
 def prediction(model, dataset):
-    print(type(model), dataset.shape)
-    dataset = torch.einsum('ijk -> kij', dataset)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    dataset = torch.einsum('ijk -> kij', dataset)[None,:].to(device)
     print('sto per predirre veramente')
     output = model(dataset)
-    print(output)
+    print(output.shape)
     _, predicted = torch.max(output, 1)
     print(predicted)
     
     st.write(predicted)
         
 async def main():
+    PREDICTION_SERVICE_HOSTNAME = '127.0.0.1'#os.environ["PREDICTION_SERVICE_HOSTNAME"]
+    PREDICTION_SERVICE_PORT = '8000'#os.environ["PREDICTION_SERVICE_PORT"]
     st.title("Sign Language Recognition Demo")
     st.text("Rube Rube Rube")
 
     print("starting webcam...")
-    model = model_initialization()
+    model = model_initialization(False)
 
     st.title("Webcam Live Feed")
     run = st.checkbox('Run')
@@ -97,7 +102,7 @@ async def main():
                     
                     mano = frame[y_min-meta2:y_max+meta2, x_min-meta:x_max+meta]
                     mano = frame_resize(mano)
-                    if frames%100 == 0:
+                    if frames%10 == 0:
                         st.image(mano)
                         dataset = torch.Tensor(mano)
                         prediction(model,dataset)
@@ -113,5 +118,15 @@ async def main():
 
 
 if __name__ == '__main__':
+    '''
+    device= torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model_initialization()
+    img_path = 'asl_dataset/0/hand1_0_bot_seg_1_cropped.jpeg'
+    print(device)
+    img = torch.einsum('ijk -> kij',torch.Tensor(cv2.imread(img_path)))[None,:].to(device)
+    print(img.shape)
+    output = model(img)
+    print(output)
+    '''
     asyncio.run(main())
 

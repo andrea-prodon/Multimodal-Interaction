@@ -20,12 +20,12 @@ def model_initialization(resnet):
         model = models.resnet50(weights=None).to(device)
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, 36) 
-        model.load_state_dict(torch.load('saved_models/resnet50_bestacc.pth'))
+        model.load_state_dict(torch.load('saved_models/resnet50_bestacc.pth', map_location=device))
     else:
         model = models.vgg16(weights=None).to(device)
         num_ftrs = model.classifier[6].in_features
         model.classifier[6] = nn.Linear(num_ftrs, 36)
-        model.load_state_dict(torch.load('saved_models/vgg16_bestacc.pth'))
+        model.load_state_dict(torch.load('saved_models/vgg16_bestacc.pth', map_location=device))
     model.eval()
     print("model initialized")
     return model
