@@ -11,20 +11,22 @@ import asyncio
 import torch.nn as nn
 import httpx
 import time
+import string
 
 
 def model_initialization(resnet=True):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #device = 'cpu'
     if resnet:
         model = models.resnet50(weights=None).to(device)
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, 36).to(device)
-        model.load_state_dict(torch.load('saved_models/resnet50_bestacc.pth'))
+        model.load_state_dict(torch.load('saved_models/resnet50_bestacc.pth', map_location=device))
     else:
         model = models.vgg16(weights=None).to(device)
         num_ftrs = model.classifier[6].in_features
         model.classifier[6] = nn.Linear(num_ftrs, 36).to(device)
-        model.load_state_dict(torch.load('saved_models/vgg16_bestacc.pth'))
+        model.load_state_dict(torch.load('saved_models/vgg16_bestacc.pth', map_location=device))
     model.eval()
     print("model initialized")
     return model
@@ -36,15 +38,19 @@ def frame_resize(frame):
 
 def prediction(model, dataset):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #device = 'cpu'
     dataset = torch.einsum('ijk -> kij', dataset)[None,:].to(device)
-    print('sto per predirre veramente')
     output = model(dataset)
-    print(output.shape)
+    #print(output.shape)
     _, predicted = torch.max(output, 1)
-    print(predicted)
-    
+    #print(predicted)
     st.write(predicted)
-        
+    return predicted
+
+def translate(value,labels_dict):
+    st.write("tradotto")
+    return labels_dict[value]
+
 async def main():
     PREDICTION_SERVICE_HOSTNAME = '127.0.0.1'#os.environ["PREDICTION_SERVICE_HOSTNAME"]
     PREDICTION_SERVICE_PORT = '8000'#os.environ["PREDICTION_SERVICE_PORT"]
@@ -66,6 +72,11 @@ async def main():
     mp_drawing = mp.solutions.drawing_utils
     cap = cv2.VideoCapture(0)
     frames = 0
+
+    labels_cat = [str(i) for i in range(0,10)] + list(string.ascii_lowercase)
+    _,labels_int = np.unique(labels_cat, return_inverse=True)
+    labels_dict = {labels_int[i]: labels_cat[i] for i in range(len(labels_cat))}
+    #print(labels_dict)
 
     while run:
         frames += 1
@@ -102,10 +113,14 @@ async def main():
                     
                     mano = frame[y_min-meta2:y_max+meta2, x_min-meta:x_max+meta]
                     mano = frame_resize(mano)
-                    if frames%10 == 0:
+                    if frames%50 == 0:
                         st.image(mano)
                         dataset = torch.Tensor(mano)
-                        prediction(model,dataset)
+                        predicted = prediction(model,dataset)
+                        st.write(predicted)
+                        result = translate(predicted.item(),labels_dict)
+                        st.write(result)
+
                         #task = asyncio.create_task(prediction(model,dataset))
                         #asyncio.run(task)
                         #await task
