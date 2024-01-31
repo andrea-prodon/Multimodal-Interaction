@@ -21,7 +21,7 @@ def model_initialization(resnet=True):
         model = models.resnet50(weights=None).to(device)
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, 36).to(device)
-        model.load_state_dict(torch.load('saved_models/resnet50_bestacc.pth', map_location=device))
+        model.load_state_dict(torch.load('saved_models/dataset5_resnet50_bestacc.pth', map_location=device))
     else:
         model = models.vgg16(weights=None).to(device)
         num_ftrs = model.classifier[6].in_features
@@ -58,7 +58,7 @@ async def main():
     st.text("Rube Rube Rube")
 
     print("starting webcam...")
-    model = model_initialization(False)
+    model = model_initialization(True)
 
     st.title("Webcam Live Feed")
     run = st.checkbox('Run')
